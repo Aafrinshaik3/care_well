@@ -1,0 +1,7 @@
+# AWS deployment foundation
+
+This Terraform scaffold describes a three-AZ deployment boundary; it is **not applied** and does not certify HIPAA compliance. Review region quotas, CIDRs, threat model, account guardrails, RDS size, secrets policy, retention and service agreements before a deployment.
+
+`main.tf` provides a Multi-AZ VPC with public ALB, private application/EKS-task, and isolated database subnets; per-AZ NAT for application-tier egress; an app-only PostgreSQL security group; a private encrypted Multi-AZ RDS PostgreSQL instance; customer-managed KMS-key encryption for RDS, S3 and default EBS volumes; a versioned non-public data bucket; validated multi-region CloudTrail logs; a 365-day encrypted CloudWatch audit log group; and a regional AWS WAF IP rate-based rule.
+
+The edge ALB, EKS cluster/tasks, target groups, listener, TLS certificate, and the WAF association are owned by the application deployment stack and should consume the subnet/security group/WAF outputs here. Pin provider versions and review the plan output before applying. Never commit a Terraform state file or provider credential. RDS master credentials are managed by AWS Secrets Manager; runtime access must use a separately scoped application database identity, not the master login. Keep PHI out of logs and public S3 access; configure object lifecycle, access audit, retention/deletion and backup restoration policies after compliance review.

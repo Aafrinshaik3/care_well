@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ConsultationType {
+  in_clinic
+  video
+
+  @@map("consultation_type")
+}
+
+enum AppointmentStatus {
+  pending
+  confirmed
+  in_progress
+  completed
+  cancelled
+  no_show
+
+  @@map("appointment_status")
+}
+
+enum PaymentStatus {
+  unpaid
+  held_in_escrow
+  released
+  refunded
+
+  @@map("payment_status")
+}
+
+model DoctorProfile {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId             String           @unique @map("user_id") @db.Uuid
+  fullName           String           @map("full_name") @db.VarChar(255)
+  specialty          String           @db.VarChar(100)
+  consultationFee    Decimal          @map("consultation_fee") @db.Decimal(10, 2)
+  slotDurationMinutes Int             @default(15) @map("slot_duration_minutes")
+  timezone           String           @default("UTC") @db.VarChar(50)
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  schedules          DoctorSchedule[]
+  appointments       Appointment[]
+  leaves             DoctorLeave[]
+
+  @@index([specialty])
+  @@map("doctor_profiles")
+}
+
+model DoctorSchedule {
+  id         String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  doctorId   String        @map("doctor_id") @db.Uuid
+  dayOfWeek  Int           @map("day_of_week")
+  startTime  DateTime      @map("start_time") @db.Time(0)
+  endTime    DateTime      @map("end_time") @db.Time(0)
+  isActive   Boolean       @default(true) @map("is_active")
+  doctor     DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId, dayOfWeek, isActive])
+  @@map("doctor_schedules")
+}
+
+model Appointment {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patientId          String             @map("patient_id") @db.Uuid
+  doctorId           String?            @map("doctor_id") @db.Uuid
+  type               ConsultationType
+  status             AppointmentStatus  @default(pending)
+  paymentStatus      PaymentStatus      @default(unpaid) @map("payment_status")
+  scheduledStartTime DateTime           @map("scheduled_start_time") @db.Timestamptz(6)
+  scheduledEndTime   DateTime           @map("scheduled_end_time") @db.Timestamptz(6)
+  patientNotes       String?            @map("patient_notes") @db.Text
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  doctor             DoctorProfile?     @relation(fields: [doctorId], references: [id], onDelete: SetNull)
+
+  @@index([patientId, scheduledStartTime])
+  @@index([doctorId, scheduledStartTime])
+  @@index([status, scheduledStartTime])
+  @@map("appointments")
+}
+
+model DoctorLeave {
+  id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  doctorId  String        @map("doctor_id") @db.Uuid
+  startsAt  DateTime      @map("starts_at") @db.Timestamptz(6)
+  endsAt    DateTime      @map("ends_at") @db.Timestamptz(6)
+  reason    String?       @db.VarChar(255)
+  isActive  Boolean       @default(true) @map("is_active")
+  doctor    DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId, startsAt, endsAt, isActive])
+  @@map("doctor_leaves")
+}
